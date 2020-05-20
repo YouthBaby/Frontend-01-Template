@@ -1,4 +1,5 @@
 const net = require('net');
+const { parseHTML } = require('../week06/parser');
 
 class Request {
   constructor(options) {
@@ -163,8 +164,8 @@ class TrunkedBodyParser {
         }
         this.current = this.WATING_LENGTH_LINE_END;
       } else {
-        this.length *= 10;
-        this.length += char.charCodeAt(0) - '0'.charCodeAt(0);
+        this.length *= 16;
+        this.length += parseInt(char, 16);
       }
     } else if (this.current === this.WATING_LENGTH_LINE_END) {
       if (char === '\n') {
@@ -199,5 +200,5 @@ void async function() {
   })
 
   let response = await request.send();
-  console.log(response);
+  console.log(parseHTML(response.body));
 }()
