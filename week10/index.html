@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>三子棋</title>
+  <style>
+    #board {
+      width: 350px;
+      user-select: none;
+    }
+    .cell {
+      display: inline-block;
+      width: 100px;
+      height: 100px;
+      border: 1px solid white;
+      background-color: green;
+      vertical-align: middle;
+      font-size: 50px;
+      line-height: 100px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div id="board"></div>
+</body>
+<script>
+  let color = 1;
+  const cellMap = new Map();
+  const charMap = {
+    0: "",
+    1: "⭕️",
+    2: "❌"
+  }
+
+  const pattern = [
+    [0, 0, 0],
+    [0, 0, 0],
+    [0, 0, 0]
+  ];
+
+  function show() {
+    const board = document.getElementById("board");
+    board.innerHTML = "";
+    for (let i = 0; i < 3; i++) {
+      for (let j = 0; j < 3; j++) {
+        const cell = document.createElement("div");
+        cell.classList.add("cell");
+        cell.innerHTML = charMap[pattern[i][j]];
+        cell.addEventListener("click", () => userMove(cell, j, i));
+        cellMap.set([i, j].toString(), cell);
+        board.append(cell);
+      }
+    }
+  }
+
+  function userMove(cell, x, y) {
+    if (pattern[y][x] !== 0) return;
+    pattern[y][x] = color;
+    cell.innerHTML = charMap[color];
+    if (check(pattern, color, x, y)) {
+      console.log(charMap[color], 'win')
+    }
+    color = 3 - color;
+    computerMove();
+  }
+
+  function computerMove() {
+    let choice = bestChoice(pattern, color);
+    if (choice.point) {
+      const [x, y] = choice.point
+      const cell = cellMap.get([y, x].toString())
+      pattern[y][x] = color;
+      cell.innerHTML = charMap[color];
+    }
+    color = 3 - color;
+  }
+
+  function checkRowWin(pattern, color, x, y) {
+    let rowWillWin;
+    let rowWin = true;
+    for (let i = 0; i < 3; i++) {
+      if (pattern[y][i] !== color) {
+        rowWin = false;
+        break;
+      }
+    }
+    return rowWin;
+  }
+
+  function checkColWin(pattern, color, x, y) {
+    let colWin = true;
+    for (let i = 0; i < 3; i++) {
+      if (pattern[i][x] !== color) {
+        colWin = false;
+        break;
+      }
+    }
+    return colWin;
+  }
+
+  function checkCrossWin1(pattern, color, x, y) {
+    let crossWin1 = x === y ? true : false;
+    if (crossWin1) {
+      for (let i = 0; i < 3; i++) {
+        if (pattern[i][i] !== color) {
+          crossWin1 = false;
+          break;
+        }
+      }
+    }
+    return crossWin1;
+  }
+
+  function checkCrossWin2(pattern, color, x, y) {
+    let crossWin2 = x + y === 2 ? true : false;
+    if (crossWin2) {
+      for (let i = 0; i < 3; i++) {
+        if (pattern[i][2 - i] !== color) {
+          crossWin2 = false;
+          break;
+        }
+      }
+    }
+    return crossWin2;
+  }
+
+  function check(pattern, color, x, y) {
+    return checkRowWin(pattern, color, x, y)
+      || checkColWin(pattern, color, x, y)
+      || checkCrossWin1(pattern, color, x, y)
+      || checkCrossWin2(pattern, color, x, y)
+  }
+
+  function willWin(pattern, color) {
+    let result;
+    for (let i = 0; i < 3; i++) {
+      for (let j = 0; j < 3; j++) {
+        if (pattern[i][j]) continue;
+        pattern[i][j] = color;
+        result = check(pattern, color, j, i);
+        pattern[i][j] = 0;
+        if (result) {
+          return [j, i];
+        }
+      }
+    }
+    return null;
+  }
+
+  function bestChoice(pattern, color) {
+    let point = willWin(pattern, color);
+    if (point) {
+      return {
+        point,
+        result: 1
+      }
+    }
+
+    let result = -1;
+
+    outer: for (let i = 0; i < 3; i++) {
+      for (let j = 0; j < 3; j++) {
+        if (pattern[i][j]) continue;
+        pattern[i][j] = color;
+        opp = bestChoice(pattern, 3 - color);
+        pattern[i][j] = 0;
+        if (-opp.result >= result) {
+          point = [j, i];
+          result = -opp.result
+        }
+        if (result === 1) break outer;
+      }
+    }
+  
+    return {
+      point: point,
+      result: point ? result : 0
+    }
+  }
+
+  show()
+</script>
+</html>
