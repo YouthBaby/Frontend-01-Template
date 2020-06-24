@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>寻路算法</title>
+  <style>
+    .cell {
+      width: 6px;
+      height: 6px;
+      background-color: gray;
+      border-bottom: solid 1px white;
+      border-right: solid 1px white;
+    }
+    #container{
+      display: flex;
+      flex-wrap: wrap;
+      width: 701px;
+    }
+  </style>
+</head>
+<body>
+  <div id="container"></div>
+  <button onclick="localStorage.map = JSON.stringify(map)">save</button>
+</body>
+<script>
+  class BinaryHeap {
+    constructor(data, compare) {
+      this.data = this.buildHeap(data);
+      this.compare = compare;
+    }
+
+    buildHeap(data) {
+      for (let i = Math.floor(data.length - 2) / 2; i >= 0; i--) {
+        this.downAdjust(data, i);
+      }
+      return data;
+    }
+
+    upAdjust(data) {
+      let childIndex = data.length - 1;
+      let parentIndex = Math.floor((childIndex - 1) / 2);
+      let temp = this.data[childIndex];
+      while (childIndex > 0 && this.compare(temp, this.data[parentIndex]) < 0) {
+        this.data[childIndex] = this.data[parentIndex];
+        childIndex = parentIndex;
+        parentIndex = Math.floor((parentIndex - 1) / 2);
+      }
+      this.data[childIndex] = temp;
+    }
+
+    downAdjust(data, parentIndex) {
+      let temp = this.data[parentIndex];
+      let childIndex = parentIndex * 2 + 1;
+      while (childIndex < data.length) {
+        if (childIndex + 1 < data.length && this.compare(this.data[childIndex + 1], this.data[childIndex]) < 0) {
+          childIndex++;
+        }
+        if (this.compare(temp, this.data[childIndex]) <= 0) {
+          break;
+        }
+        this.data[parentIndex] = this.data[childIndex]
+        parentIndex = childIndex;
+        childIndex = childIndex * 2 + 1;
+      }
+      this.data[parentIndex] = temp;
+    }
+
+    take() {
+      let min = this.data[0];
+      this.data[0] = this.data.pop();
+      this.downAdjust(this.data, 0);
+      return min;
+    }
+    insert(v) {
+      this.data.push(v);
+      this.upAdjust(this.data);
+    }
+    get length() {
+      return this.data.length
+    }
+  }
+
+  const map = localStorage.map ? JSON.parse(localStorage.map) : new Array(10000).fill(0);
+  const container = document.getElementById('container');
+  container.addEventListener("mousemove", (e) => {
+    const x = Math.floor(e.clientX / 7);
+    const y = Math.floor(e.clientY / 7);
+    const cell = container.children[100 * y + x];
+    if (mouse) {
+      if (clear) {
+        cell.style.backgroundColor = '';
+        map[y * 100 + x] = 0;
+      } else {
+        cell.style.backgroundColor = 'black';
+        map[y * 100 + x] = 1;
+      }
+    }
+  })
+  for (let i = 0; i < 100; i++) {
+    for (let j = 0; j < 100; j++) {
+      const cell = document.createElement("div");
+      cell.classList.add("cell");
+      if (map[i * 100 + j] === 1) {
+        cell.style.backgroundColor = 'black';
+      }
+      container.appendChild(cell);
+    }
+  }
+  let mouse = false;
+  let clear = false;
+  document.addEventListener("mousedown", e => {
+    mouse = true;
+    clear = e.button === 2;
+  })
+  document.addEventListener("mouseup", () => mouse = false)
+  document.addEventListener("contextmenu", e => e.preventDefault())
+
+  function sleep(ms) {
+    return new Promise(resolve => {
+      setTimeout(resolve, ms);
+    })
+  }
+
+  async function findPath(map, start, end) {
+    map = map.slice();
+
+    function distance([x, y]) {
+      return (x - end[0]) ** 2 + (y - end[1]) ** 2;
+    }
+
+    let collection = new BinaryHeap([start], (a, b) => distance(a) - distance(b));
+
+    async function insert([x, y], pre) {
+      if (
+        map[100 * y + x] !== 0 ||
+        (map[100 * y + pre[0]] !== 0 && map[100 * pre[1] + x] !== 0) ||
+        x < 0 || y < 0 || x >= 100 || y >= 100
+      ) {
+        return;
+      }
+      map[100 * y + x] = pre;
+      container.children[100 * y + x].style.backgroundColor = "lightgreen";
+      await sleep(5);
+      collection.insert([x, y]);
+    }
+
+    while(collection.length) {
+      let [x, y] = collection.take();
+      if (x === end[0] && y === end[1]) {
+        let path = [];
+        while(x !== start[0] || y !== start[1]) {
+          path.push([x, y]);
+          container.children[100 * y + x].style.backgroundColor = "pink";
+          await sleep(5);
+          [x, y] = map[100 * y + x];
+        }
+        return path;
+      }
+
+      await insert([x - 1, y], [x, y]);
+      await insert([x + 1, y], [x, y]);
+      await insert([x, y - 1], [x, y]);
+      await insert([x, y + 1], [x, y]);
+      await insert([x - 1, y - 1], [x, y]);
+      await insert([x + 1, y - 1], [x, y]);
+      await insert([x - 1, y + 1], [x, y]);
+      await insert([x + 1, y + 1], [x, y]);
+    }
+
+    return null;
+  }
+</script>
+</html>
