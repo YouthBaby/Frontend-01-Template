@@ -1,0 +1,130 @@
+<script>
+  var regexp = /(0|[1-9]\d*)|([ ]+)|([\r\n]+)|(\+)|(\-)|(\*)|(\/)/g;
+  var dictionary = ["Number", "Whitespace", "LineTerminator", "+", "-", "*", "/"];
+  function* tokenize(source) {
+    var lastIndex;
+
+    function exec(source) {
+      lastIndex = regexp.lastIndex;
+      return regexp.exec(source);
+    }
+
+    function createToken(data) {
+      let type;
+      for (var i = 0; i < dictionary.length; i++) {
+        if (data[i + 1]) {
+          type = dictionary[i];
+        }
+      }
+      return { // option: 状态机
+        type,
+        value: data[0]
+      }
+    }
+
+    while (result = exec(source)) {
+      if (regexp.lastIndex - lastIndex > result[0].length) {
+        const errorIdentifier = source.slice(lastIndex, regexp.lastIndex - result[0].length);
+        throw new SyntaxError("Unexpected toeken \"" + errorIdentifier + "\"!");
+      }
+      yield createToken(result);
+    }
+
+    yield {
+      type: "EOF"
+    }
+  }
+
+  function Expression(source) {
+    if (
+      source[0].type === 'AdditiveExpression' &&
+      source[1] &&
+      source[1].type === "EOF"
+    ) {
+      const expressionNode = {
+        type: "Expression",
+        children: [source.shift(), source.shift()]
+      }
+      source.unshift(expressionNode);
+      return source[0];
+    }
+    AdditiveExpression(source);
+    return Expression(source);
+  }
+
+  function AdditiveExpression(source) {
+    if (
+      source[0].type === 'Number' &&
+      MultiplicativeExpression(source)
+    ) {
+      return AdditiveExpression(source);
+    }
+    if (source[0].type === 'MultiplicativeExpression') {
+      const additiveExpressionNode = {
+        type: 'AdditiveExpression',
+        value: source.shift().value
+      }
+      source.unshift(additiveExpressionNode);
+      return AdditiveExpression(source);
+    }
+    if (
+      source[0].type === 'AdditiveExpression' &&
+      source[1] &&
+      (source[1].type === "+" || source[1].type === "-")
+    ) {
+      const additiveExpressionNode = {
+        type: 'AdditiveExpression',
+        children: [source.shift(), source.shift()]
+      }
+      if (MultiplicativeExpression(source)) {
+        additiveExpressionNode.children.push(source.shift());
+        source.unshift(additiveExpressionNode);
+        return AdditiveExpression(source);
+      }
+    }
+    if (source[0].type === 'AdditiveExpression') {
+      return source[0];
+    }
+  }
+
+  function MultiplicativeExpression(source) {
+    if (source[0].type === 'Number') {
+      const multiplicativeExpressionNode = {
+        type: 'MultiplicativeExpression',
+        value: source.shift().value
+      }
+      source.unshift(multiplicativeExpressionNode);
+      return MultiplicativeExpression(source);
+    }
+    if (
+      source[0].type === "MultiplicativeExpression" &&
+      source[1] &&
+      (source[1].type === "*" || source[1].type === "/") &&
+      source[2] &&
+      source[2].type === "Number"
+    ) {
+      const multiplicativeExpressionNode = {
+        type: 'MultiplicativeExpression',
+        children: [source.shift(), source.shift(), source.shift()]
+      }
+      source.unshift(multiplicativeExpressionNode);
+      return MultiplicativeExpression(source);
+    }
+
+    if (source[0].type === "MultiplicativeExpression") {
+      return source[0];
+    }
+
+    throw new RangeError("Unknown Type: " + source[0].type)
+  }
+
+  let source = [];
+
+  for (let token of tokenize("1024 + 5 * 24")) {
+    if (token.type !== "Whitespace") {
+      source.push(token);
+    }
+  }
+
+  console.log(Expression(source));
+</script>

@@ -1,0 +1,15 @@
+<script>
+  function getNexts(pattern) {
+    let nexts = [-1], k = -1;
+    for (let i = 1; i < pattern.length; i++) {
+      while (k !== -1 && pattern[k + 1] !== pattern[i]) {
+        k = nexts[k];
+      }
+      if (pattern[k + 1] === pattern[i]) {
+        k++;
+      }
+      nexts[i] = k;
+    }
+    return nexts;
+  }
+</script>
