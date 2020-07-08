@@ -1,0 +1,67 @@
+<script>
+  let handlers = new Map();
+  let reactionStack = [];
+  let object = {
+    a: 1,
+    b: 2
+  }
+
+  function isObject(val) {
+    return val !== null && typeof val === 'object'
+  }
+
+  function reactive(target) {
+    return new Proxy(target, {
+      get(target, key, receiver) {
+        const result = Reflect.get(target, key, receiver);
+        if (isObject(result)) {
+          return reactive(result);
+        }
+        const [runningFunction] = reactionStack.slice(-1);
+        if (!runningFunction) {
+          return result;
+        }
+        const map = (handlers.get(target) || handlers.set(target, new Map()), handlers.get(target));
+        const dep = (map.get(key) || map.set(key, new Set()), map.get(key));
+        dep.add(runningFunction);
+        return result;
+      },
+      set(target, key, value, receiver) {
+        const result = Reflect.set(target, key, value, receiver);
+        const map = handlers.get(target);
+        if (!map) {
+          return result;
+        }
+        const dep = map.get(key);
+        if (!dep) {
+          return result;
+        }
+        for (const reaction of dep) {
+          reaction();
+        }
+        return result;
+      }
+    })
+  }
+
+  function effect(handler) {
+    const reaction = (...args) => {
+      try {
+        reactionStack.push(reaction);
+        return Reflect.apply(handler, this, args);
+      } finally {
+        reactionStack.pop();
+      }
+    }
+    reaction();
+    return reaction;
+  }
+
+  let dummy;
+  let proxy = reactive(object);
+
+  effect(() => { dummy = proxy.a });
+  console.log(dummy);
+  proxy.a = 2;
+  console.log(dummy);
+</script>

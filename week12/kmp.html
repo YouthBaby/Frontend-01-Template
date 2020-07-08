@@ -12,4 +12,20 @@
     }
     return nexts;
   }
+
+  function kmp(source, pattern) {
+    let next = getNexts(pattern), j = 0;
+    for (let i = 0; i < source.length; i++) {
+      while (j > 0 && source[i] !== source[j]) {
+        j = next[j - 1] + 1;
+      }
+      if (source[i] === source[j]) {
+        j++;
+      }
+      if (j === pattern.length) {
+        return i - pattern.length + 1;
+      }
+    }
+    return -1;
+  }
 </script>
