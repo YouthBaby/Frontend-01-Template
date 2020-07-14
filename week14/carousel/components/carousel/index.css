@@ -1,0 +1,11 @@
+.carousel {
+  display: flex;
+  width: 500px;
+  height: 300px;
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+.carousel > img {
+  width: 500px;
+  height: 300px;
+}
