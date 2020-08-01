@@ -1,6 +1,7 @@
 export class Timeline {
   constructor() {
     this.animations = [];
+    this.finishedAnimations = [];
     this.requestId = null;
     this.startTime = null;
     this.pauseTime = null;
@@ -12,10 +13,13 @@ export class Timeline {
     let t = Date.now() - this.startTime;
     this.animations = [];
     for (let animation of animations) {
+      if (t < animation.delay + animation.addTime) continue;
       let progression = animation.getProgression(t);
       animation.value = animation.valueFromProgression(progression);
       if (progression < 1) {
         this.animations.push(animation);
+      } else {
+        this.finishedAnimations.push(animations);
       }
     }
     if (this.animations.length > 0) {
@@ -48,13 +52,27 @@ export class Timeline {
       this.tick();
     }
   }
-  restart() {
+  reset() {
     if (this.state === "playing") {
       this.pause();
     }
     this.animations = [];
+    this.finishedAnimations = [];
     this.requestId = null;
-    this,status = "playing";
+    this.startTime = Date.now();
+    this.pauseTime = null;
+    this.state = "inited";
+  }
+  restart() {
+    if (this.state === "playing") {
+      this.pause();
+    }
+    for (let animation of this.finishedAnimations) {
+      this.animations.push(animation);
+    }
+    this.finishedAnimations = [];
+    this.requestId = null;
+    this.state = "playing";
     this.startTime = Date.now();
     this.pauseTime = null;
     this.tick();
@@ -62,28 +80,28 @@ export class Timeline {
 
   add(animation, addTime) {
     this.animations.push(animation);
-    if (this.state === "playing" && this.requestId === null) {
-      this.tick();
-    }
     animation.addTime = addTime !== void 0
       ? addTime
       : this.state === "playing"
         ? Date.now() - this.startTime
         : 0;
+    if (this.state === "playing" && this.requestId === null) {
+      this.tick();
+    }
   }
 }
 
 export class Animation {
   /**
-   * @param {object} object 
-   * @param {string} property 
-   * @param {number} start 
-   * @param {number} end 
-   * @param {number} duration 
-   * @param {number} delay 
-   * @param {Function} timingFunction 
-   * @param {Function} template 
-   * @param {number} addTime 
+   * @param {object} object
+   * @param {string} property
+   * @param {number} start
+   * @param {number} end
+   * @param {number} duration
+   * @param {number} delay
+   * @param {Function} timingFunction
+   * @param {Function} template
+   * @param {number} addTime
    */
   constructor(object, property, start, end, duration, delay, timingFunction, template, addTime) {
     this.object = object;
@@ -95,11 +113,13 @@ export class Animation {
     this.timingFunction = timingFunction;
     this.template = template;
     this.addTime = addTime || 0;
+    this.originValue = null;
   }
   get value() {
     return this.object[this.property];
   }
   set value(val) {
+    this.originValue = val;
     return this.object[this.property] = this.template(val);
   }
   /**

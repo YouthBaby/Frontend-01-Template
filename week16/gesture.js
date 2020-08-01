@@ -51,10 +51,12 @@ export function enableGesture(element) {
 
   let start = (event, context) => {
     element.dispatchEvent(new CustomEvent("start", {
-      startX: event.clientX,
-      startY: event.clientY,
-      clientX: event.clientX,
-      clientY: event.clientY
+      detail: {
+        startX: event.clientX,
+        startY: event.clientY,
+        clientX: event.clientX,
+        clientY: event.clientY
+      }
     }));
     context.moves = [];
     context.startX = event.clientX;
@@ -83,10 +85,12 @@ export function enableGesture(element) {
       context.isPan = true;
       context.isPress = false;
       element.dispatchEvent(new CustomEvent("panstart", {
-        startX: context.clientX,
-        startY: context.clientY,
-        clientX: event.clientX,
-        clientY: event.clientY
+        detail: {
+          startX: context.startX,
+          startY: context.startY,
+          clientX: event.clientX,
+          clientY: event.clientY
+        }
       }));
     }
 
@@ -98,10 +102,12 @@ export function enableGesture(element) {
       })
       context.moves = context.moves.filter(record => Date.now() - record.t <= 300);
       element.dispatchEvent(new CustomEvent("pan", {
-        startX: context.clientX,
-        startY: context.clientY,
-        clientX: event.clientX,
-        clientY: event.clientY
+        detail: {
+          startX: context.startX,
+          startY: context.startY,
+          clientX: event.clientX,
+          clientY: event.clientY
+        }
       }));
     }
   }
@@ -115,20 +121,24 @@ export function enableGesture(element) {
       let isFlick = speed > 2.5;
       if (isFlick) {
         element.dispatchEvent(new CustomEvent("flick", {
-          startX: context.clientX,
-          startY: context.clientY,
-          clientX: event.clientX,
-          clientY: event.clientY,
-          speed
+          detail: {
+            startX: context.startX,
+            startY: context.startY,
+            clientX: event.clientX,
+            clientY: event.clientY,
+            speed
+          }
         }));
       }
       element.dispatchEvent(new CustomEvent("panend", {
-        startX: context.clientX,
-        startY: context.clientY,
-        clientX: event.clientX,
-        clientY: event.clientY,
-        speed,
-        isFlick: isFlick
+        detail: {
+          startX: context.startX,
+          startY: context.startY,
+          clientX: event.clientX,
+          clientY: event.clientY,
+          speed,
+          isFlick: isFlick
+        }
       }));
     }
     if (context.isTap) {

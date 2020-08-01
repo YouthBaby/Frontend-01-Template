@@ -1,6 +1,6 @@
 import { create } from '../../utils/create-element';
 import { Timeline, Animation } from '../../animation';
-import { ease } from '../../cubicBezier';
+import { ease, linear } from '../../cubicBezier';
 import './index.css';
 
 export class Carousel {
@@ -9,51 +9,36 @@ export class Carousel {
     duration = 3000
   } = {}) {
     this.position = 0;
-    this.imgList = [];
-    this.root = null;
     this.width = null;
     this.timer = null;
     this.autoplay = autoplay;
     this.duration = duration;
     this.children = [];
+    this.childNodeList = null;
+    this.timeLine = new Timeline;
+    this.timeLine.start();
   }
 
   setAttribute(key, value) {
     this[key] = value;
-    if (key === 'data') {
-      this.setImgList(value);
-    }
-  }
-
-  setImgList(imgList) {
-    this.imgList = imgList.map(url=> {
-      let element = <img src={url} />;
-      element.addEventListener("dragstart", e => e.preventDefault());
-      return element;
-    })
-    this.root = <div class="carousel">
-      {this.imgList}
-    </div>
   }
 
   appendChild(child) {
     this.children.push(child);
   }
 
-  setTransform(pos, offset , setP = false) {
-    let el = this.imgList[pos];
-    el.style.transition = `all ease ${setP ? 0 : 0.5}s`;
-    el.style.transform = `translateX(${offset})`;
+  setAnimation(pos, start, end) {
+    let el = this.childNodeList[pos];
+    let animation = new Animation(el.style, "transform", start, end, 500, 0, ease, v => `translateX(${v}px)`);
+    this.timeLine.add(animation);
   }
 
   swipe() {
+    let width = this.width;
     let position = this.position;
     let nextPosition = (position + 1) % this.data.length;
-    this.setTransform(position, `${-100 * position}%`, true);
-    this.setTransform(nextPosition, `${100 - 100 * nextPosition}%`, true);
-    let offsetWidth = this.root.offsetWidth; // repaint
-    this.setTransform(position, `${-100 - 100 * position}%`);
-    this.setTransform(nextPosition, `${-100 * nextPosition}%`);
+    this.setAnimation(position, - width * position, - width - width * position);
+    this.setAnimation(nextPosition, width - width * nextPosition, - width * nextPosition);
     this.position = nextPosition;
     this.start();
   }
@@ -66,49 +51,64 @@ export class Carousel {
   }
 
   render() {
-    this.root.addEventListener("mousedown", () => {
-      if (this.timer) {
+    let length = this.data.length;
+    let children = this.childNodeList = this.data.map((url, currentPosition) => {
+      let lastPosition = (currentPosition - 1 + length) % length;
+      let nextPosition = (currentPosition + 1) % length;
+      let offset = 0;
+      let onStart = event => {
+        this.timeLine.pause();
         clearTimeout(this.timer);
+        let currentElement = children[currentPosition];
+        let currentTransformValue = Number(currentElement.style.transform.match(/translateX\(([\s\S]+)px\)/)[1]);
+        offset = currentTransformValue + this.width * currentPosition;
       }
-      let width = this.width;
-      let startX = event.clientX;
-      let length = this.data.length;
-      let position = this.position;
-      let nextPos = (position + 1) % length;
-      let lastPos = (position - 1 + length) % length;
 
-      this.setTransform(position, `${-width * position}px`, true);
-      this.setTransform(lastPos, `${ -width - width * lastPos}px`, true);
-      this.setTransform(nextPos, `${width - width * nextPos}px`, true);
+      let onPan = event => {
+        let width = this.width;
+        let deltaX = event.detail.clientX - event.detail.startX + offset;
+        let lastElement = children[lastPosition];
+        let currentElement = children[currentPosition];
+        let nextElement = children[nextPosition];
 
-      let move = event => {
-        let offsetX = event.clientX - startX;
-        this.setTransform(position, `${offsetX - width * position}px`, true);
-        this.setTransform(lastPos, `${offsetX - width - width * lastPos}px`, true);
-        this.setTransform(nextPos, `${offsetX + width - width * nextPos}px`, true);
-      };
-      let up = (event) => {
-        let offsetX = event.clientX - startX;
-        let offset = offsetX > 250 ? 1 : offsetX < -250 ? -1 : 0;
+        let currentTransformValue = - width * currentPosition + deltaX;
+        let lastTransformValue = - width - width * lastPosition + deltaX;
+        let nextTransformValue = width - width * nextPosition + deltaX;
 
-        this.setTransform(position, `${(offset - position) * width}px`);
-        this.setTransform(lastPos, `${(offset - lastPos - 1) * width}px`);
-        this.setTransform(nextPos, `${(offset - nextPos + 1) * width}px`);
-        this.position = (position - offset + length) % length;
+        lastElement.style.transform = `translateX(${lastTransformValue}px)`;
+        currentElement.style.transform = `translateX(${currentTransformValue}px)`;
+        nextElement.style.transform = `translateX(${nextTransformValue}px)`;
+      }
+
+      let onPanend = event => {
+        let width = this.width;
+        let deltaX = event.detail.clientX - event.detail.startX + offset;
+        let direction = deltaX > 250 ? 1 : deltaX < -250 ? -1 : 0;
+        this.timeLine.reset();
+        this.timeLine.start();
+        this.setAnimation(lastPosition, - width - width * lastPosition + deltaX, - width - width * lastPosition + direction * width);
+        this.setAnimation(currentPosition, - width * currentPosition + deltaX, - width * currentPosition + direction * width);
+        this.setAnimation(nextPosition, width - width * nextPosition + deltaX, width - width * nextPosition + direction * width);
+
+        this.position = (currentPosition - direction + length) % length;
         this.start();
-        document.removeEventListener("mousemove", move);
-        document.removeEventListener("mouseup", up);
-      };
-      document.addEventListener("mousemove", move);
-      document.addEventListener("mouseup", up);
-    })
+      }
 
-    return this.root;
+      let element = <img src={url} onStart={onStart} onPan={onPan} onPanend={onPanend} enableGesture={true} />;
+      element.style.transform = "translateX(0px)";
+      element.addEventListener("dragstart", e => e.preventDefault());
+      return element;
+    });
+
+    return <div class="carousel">
+      {children}
+    </div>;
   }
 
   mountTo(parent) {
-    this.render().mountTo(parent);
-    this.width = this.root.offsetWidth;
+    let vnode = this.render();
+    vnode.mountTo(parent);
+    this.width = vnode.root.offsetWidth;
     this.autoplay && this.start();
   }
 }
